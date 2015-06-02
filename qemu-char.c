@@ -45,7 +45,6 @@
 #include <termios.h>
 #include <sys/mman.h>
 #include <sys/ioctl.h>
-#include <sys/resource.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <net/if.h>
@@ -54,6 +53,7 @@
 #include <netdb.h>
 #include <sys/select.h>
 #ifdef CONFIG_BSD
+#include <sys/resource.h>
 #include <sys/stat.h>
 #if defined(__FreeBSD__) || defined(__FreeBSD_kernel__)
 #include <dev/ppbus/ppi.h>
@@ -64,10 +64,12 @@
 #endif
 #else
 #ifdef __linux__
+#include <sys/resource.h>
 #include <linux/ppdev.h>
 #include <linux/parport.h>
 #endif
 #ifdef __sun__
+#include <sys/resource.h>
 #include <sys/stat.h>
 #include <sys/ethernet.h>
 #include <sys/sockio.h>
