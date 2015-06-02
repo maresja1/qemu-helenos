@@ -434,7 +434,9 @@ EOF
   compile_object
 }
 
-if check_define __linux__ ; then
+if check_define __HELEN_OS__ ; then
+  targetos="HelenOS"
+elif check_define __linux__ ; then
   targetos="Linux"
 elif check_define _WIN32 ; then
   targetos='MINGW32'
@@ -447,6 +449,7 @@ elif check_define __HAIKU__ ; then
 else
   targetos=`uname -s`
 fi
+
 
 # Some host OSes need non-standard checks for which CPU to use.
 # Note that these checks are broken for cross-compilation: if you're
@@ -662,6 +665,9 @@ Haiku)
   haiku="yes"
   QEMU_CFLAGS="-DB_USE_POSITIVE_POSIX_ERRORS $QEMU_CFLAGS"
   LIBS="-lposix_error_mapper -lnetwork $LIBS"
+;;
+HelenOS)
+  helenos="yes"
 ;;
 *)
   audio_drv_list="oss"
