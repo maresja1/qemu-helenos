@@ -65,7 +65,8 @@ int qcow2_read_snapshots(BlockDriverState *bs)
         offset = align_offset(offset, 8);
         ret = bdrv_pread(bs->file, offset, &h, sizeof(h));
         if (ret < 0) {
-            goto fail;
+            qcow2_free_snapshots(bs);
+            return ret;
         }
 
         offset += sizeof(h);
@@ -85,7 +86,8 @@ int qcow2_read_snapshots(BlockDriverState *bs)
         ret = bdrv_pread(bs->file, offset, &extra,
                          MIN(sizeof(extra), extra_data_size));
         if (ret < 0) {
-            goto fail;
+            qcow2_free_snapshots(bs);
+            return ret;
         }
         offset += extra_data_size;
 
@@ -103,7 +105,8 @@ int qcow2_read_snapshots(BlockDriverState *bs)
         sn->id_str = g_malloc(id_str_size + 1);
         ret = bdrv_pread(bs->file, offset, sn->id_str, id_str_size);
         if (ret < 0) {
-            goto fail;
+            qcow2_free_snapshots(bs);
+            return ret;
         }
         offset += id_str_size;
         sn->id_str[id_str_size] = '\0';
@@ -112,24 +115,21 @@ int qcow2_read_snapshots(BlockDriverState *bs)
         sn->name = g_malloc(name_size + 1);
         ret = bdrv_pread(bs->file, offset, sn->name, name_size);
         if (ret < 0) {
-            goto fail;
+            qcow2_free_snapshots(bs);
+            return ret;
         }
         offset += name_size;
         sn->name[name_size] = '\0';
 
         if (offset - s->snapshots_offset > QCOW_MAX_SNAPSHOTS_SIZE) {
-            ret = -EFBIG;
-            goto fail;
+            qcow2_free_snapshots(bs);
+            return -EFBIG;
         }
     }
 
     assert(offset - s->snapshots_offset <= INT_MAX);
     s->snapshots_size = offset - s->snapshots_offset;
     return 0;
-
-fail:
-    qcow2_free_snapshots(bs);
-    return ret;
 }
 
 /* add at the end of the file a new list of snapshots */
@@ -139,7 +139,7 @@ static int qcow2_write_snapshots(BlockDriverState *bs)
     QCowSnapshot *sn;
     QCowSnapshotHeader h;
     QCowSnapshotExtraData extra;
-    int i, name_size, id_str_size, snapshots_size;
+    int i, name_size, id_str_size, snapshots_size = 0;
     struct {
         uint32_t nb_snapshots;
         uint64_t snapshots_offset;
@@ -158,8 +158,11 @@ static int qcow2_write_snapshots(BlockDriverState *bs)
         offset += strlen(sn->name);
 
         if (offset > QCOW_MAX_SNAPSHOTS_SIZE) {
-            ret = -EFBIG;
-            goto fail;
+            if (snapshots_offset > 0) {
+                qcow2_free_clusters(bs, snapshots_offset, snapshots_size,
+                        QCOW2_DISCARD_ALWAYS);
+            }
+            return -EFBIG;
         }
     }
 
@@ -170,19 +173,30 @@ static int qcow2_write_snapshots(BlockDriverState *bs)
     snapshots_offset = qcow2_alloc_clusters(bs, snapshots_size);
     offset = snapshots_offset;
     if (offset < 0) {
-        ret = offset;
-        goto fail;
+        if (snapshots_offset > 0) {
+            qcow2_free_clusters(bs, snapshots_offset, snapshots_size,
+                    QCOW2_DISCARD_ALWAYS);
+        }
+        return offset;
     }
     ret = bdrv_flush(bs);
     if (ret < 0) {
-        goto fail;
+        if (snapshots_offset > 0) {
+            qcow2_free_clusters(bs, snapshots_offset, snapshots_size,
+                    QCOW2_DISCARD_ALWAYS);
+        }
+        return ret;
     }
 
     /* The snapshot list position has not yet been updated, so these clusters
      * must indeed be completely free */
     ret = qcow2_pre_write_overlap_check(bs, 0, offset, snapshots_size);
     if (ret < 0) {
-        goto fail;
+        if (snapshots_offset > 0) {
+            qcow2_free_clusters(bs, snapshots_offset, snapshots_size,
+                    QCOW2_DISCARD_ALWAYS);
+        }
+        return ret;
     }
 
 
@@ -215,25 +229,41 @@ static int qcow2_write_snapshots(BlockDriverState *bs)
 
         ret = bdrv_pwrite(bs->file, offset, &h, sizeof(h));
         if (ret < 0) {
-            goto fail;
+            if (snapshots_offset > 0) {
+                qcow2_free_clusters(bs, snapshots_offset, snapshots_size,
+                        QCOW2_DISCARD_ALWAYS);
+            }
+            return ret;
         }
         offset += sizeof(h);
 
         ret = bdrv_pwrite(bs->file, offset, &extra, sizeof(extra));
         if (ret < 0) {
-            goto fail;
+            if (snapshots_offset > 0) {
+                qcow2_free_clusters(bs, snapshots_offset, snapshots_size,
+                        QCOW2_DISCARD_ALWAYS);
+            }
+            return ret;
         }
         offset += sizeof(extra);
 
         ret = bdrv_pwrite(bs->file, offset, sn->id_str, id_str_size);
         if (ret < 0) {
-            goto fail;
+            if (snapshots_offset > 0) {
+                qcow2_free_clusters(bs, snapshots_offset, snapshots_size,
+                        QCOW2_DISCARD_ALWAYS);
+            }
+            return ret;
         }
         offset += id_str_size;
 
         ret = bdrv_pwrite(bs->file, offset, sn->name, name_size);
         if (ret < 0) {
-            goto fail;
+            if (snapshots_offset > 0) {
+                qcow2_free_clusters(bs, snapshots_offset, snapshots_size,
+                        QCOW2_DISCARD_ALWAYS);
+            }
+            return ret;
         }
         offset += name_size;
     }
@@ -244,7 +274,11 @@ static int qcow2_write_snapshots(BlockDriverState *bs)
      */
     ret = bdrv_flush(bs);
     if (ret < 0) {
-        goto fail;
+        if (snapshots_offset > 0) {
+            qcow2_free_clusters(bs, snapshots_offset, snapshots_size,
+                    QCOW2_DISCARD_ALWAYS);
+        }
+        return ret;
     }
 
     QEMU_BUILD_BUG_ON(offsetof(QCowHeader, snapshots_offset) !=
@@ -256,7 +290,11 @@ static int qcow2_write_snapshots(BlockDriverState *bs)
     ret = bdrv_pwrite_sync(bs->file, offsetof(QCowHeader, nb_snapshots),
                            &header_data, sizeof(header_data));
     if (ret < 0) {
-        goto fail;
+        if (snapshots_offset > 0) {
+            qcow2_free_clusters(bs, snapshots_offset, snapshots_size,
+                    QCOW2_DISCARD_ALWAYS);
+        }
+        return ret;
     }
 
     /* free the old snapshot table */
@@ -265,13 +303,6 @@ static int qcow2_write_snapshots(BlockDriverState *bs)
     s->snapshots_offset = snapshots_offset;
     s->snapshots_size = snapshots_size;
     return 0;
-
-fail:
-    if (snapshots_offset > 0) {
-        qcow2_free_clusters(bs, snapshots_offset, snapshots_size,
-                            QCOW2_DISCARD_ALWAYS);
-    }
-    return ret;
 }
 
 static void find_new_snapshot_id(BlockDriverState *bs,
