@@ -3591,9 +3591,8 @@ elif compile_prog "" "$pthread_lib -lrt" ; then
   LIBS="$LIBS -lrt"
   libs_qga="$libs_qga -lrt"
 fi
-
 if test "$darwin" != "yes" -a "$mingw32" != "yes" -a "$solaris" != yes -a \
-        "$aix" != "yes" -a "$haiku" != "yes" ; then
+        "$aix" != "yes" -a "$haiku" != "yes" -a "$helenos" != "yes"; then
     libs_softmmu="-lutil $libs_softmmu"
 fi
 
@@ -4412,6 +4411,10 @@ fi
 
 if test "$linux" = "yes" ; then
   echo "CONFIG_LINUX=y" >> $config_host_mak
+fi
+
+if test "$helenos" = "yes" ; then
+  echo "CONFIG_HELENOS=y" >> $config_host_mak
 fi
 
 if test "$darwin" = "yes" ; then
