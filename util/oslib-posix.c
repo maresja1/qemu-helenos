@@ -60,15 +60,16 @@ extern int daemon(int, int);
 #include <sys/mman.h>
 #include <libgen.h>
 #include <setjmp.h>
-#include <sys/signal.h>
 
 #ifdef CONFIG_LINUX
 #include <sys/syscall.h>
 #include <sys/vfs.h>
+#include <sys/signal.h>
 #endif
 
 #ifdef __FreeBSD__
 #include <sys/sysctl.h>
+#include <sys/signal.h>
 #endif
 
 int qemu_get_thread_id(void)
