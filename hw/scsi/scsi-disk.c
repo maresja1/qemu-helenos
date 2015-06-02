@@ -38,7 +38,7 @@ do { printf("scsi-disk: " fmt , ## __VA_ARGS__); } while (0)
 #include "hw/block/block.h"
 #include "sysemu/dma.h"
 
-#ifdef __linux
+#ifdef CONFIG_LINUX
 #include <scsi/sg.h>
 #endif
 
