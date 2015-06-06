@@ -1040,6 +1040,7 @@ static void *qemu_tcg_cpu_thread_fn(void *arg)
             }
         }
         qemu_tcg_wait_io_event();
+         pthread_yield();
     }
 
     return NULL;
@@ -1047,7 +1048,7 @@ static void *qemu_tcg_cpu_thread_fn(void *arg)
 
 static void qemu_cpu_kick_thread(CPUState *cpu)
 {
-#ifndef _WIN32
+#if !defined(_WIN32) && !defined(CONFIG_HELENOS)
     int err;
 
     err = pthread_kill(cpu->thread->thread, SIG_IPI);
@@ -1055,6 +1056,9 @@ static void qemu_cpu_kick_thread(CPUState *cpu)
         fprintf(stderr, "qemu:%s: %s", __func__, strerror(err));
         exit(1);
     }
+#elif defined(CONFIG_HELENOS)
+	// We don't have preemptivness, should be safe
+	cpu_signal(0);
 #else /* _WIN32 */
     if (!qemu_cpu_is_self(cpu)) {
         CONTEXT tcgContext;
