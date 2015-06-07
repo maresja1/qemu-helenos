@@ -369,7 +369,7 @@ static const DisplayChangeListenerOps dcl_ops = {
 
 void curses_display_init(DisplayState *ds, int full_screen)
 {
-#ifndef _WIN32
+#if !defined(_WIN32) && !defined(CONFIG_HELENOS)
     if (!isatty(1)) {
         fprintf(stderr, "We need a terminal output\n");
         exit(1);
