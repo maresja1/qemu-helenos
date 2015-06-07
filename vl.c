@@ -2759,6 +2759,10 @@ int main(int argc, char **argv, char **envp)
 #ifdef CONFIG_VNC
     int show_vnc_port = 0;
 #endif
+
+#ifdef CONFIG_HELENOS
+	helenos_posix_poll_register(STDIN_FILENO);
+#endif
     bool defconfig = true;
     bool userconfig = true;
     const char *log_mask = NULL;
