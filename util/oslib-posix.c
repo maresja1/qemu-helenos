@@ -143,12 +143,15 @@ void *qemu_anon_ram_alloc(size_t size, uint64_t *alignment)
     ptr += offset;
     total -= offset;
 
+#ifndef CONFIG_HELENOS
+// HelenOS does not support partial unmap.
     if (offset > 0) {
         munmap(ptr - offset, offset);
     }
     if (total > size) {
         munmap(ptr + size, total - size);
     }
+#endif
 
     trace_qemu_anon_ram_alloc(size, ptr);
     return ptr;
