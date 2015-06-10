@@ -341,6 +341,10 @@ static void curses_setup(void)
     nodelay(stdscr, TRUE); nonl(); keypad(stdscr, TRUE);
     start_color(); raw(); scrollok(stdscr, FALSE);
 
+#ifdef CONFIG_HELENOS
+    resize_term(25,80);
+#endif
+
     for (i = 0; i < 64; i ++)
         init_pair(i, colour_default[i & 7], colour_default[i >> 3]);
 }
