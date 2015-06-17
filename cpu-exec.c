@@ -530,6 +530,9 @@ int cpu_exec(CPUArchState *env)
                 align_clocks(&sc, cpu);
                 /* reset soft MMU for next block (it can currently
                    only be set by a memory fault) */
+#if defined(CONFIG_HELENOS)
+                pthread_yield();
+#endif
             } /* for(;;) */
         } else {
             /* Reload env after longjmp - the compiler may have smashed all

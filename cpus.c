@@ -1040,7 +1040,6 @@ static void *qemu_tcg_cpu_thread_fn(void *arg)
             }
         }
         qemu_tcg_wait_io_event();
-         pthread_yield();
     }
 
     return NULL;
