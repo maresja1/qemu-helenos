@@ -1040,6 +1040,9 @@ static void *qemu_tcg_cpu_thread_fn(void *arg)
             }
         }
         qemu_tcg_wait_io_event();
+#if defined(CONFIG_HELENOS)
+	pthread_yield();
+#endif
     }
 
     return NULL;
