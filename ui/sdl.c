@@ -260,6 +260,73 @@ static uint8_t sdl_keyevent_to_keycode(const SDL_KeyboardEvent *ev)
 
 #endif
 
+
+#if defined(CONFIG_HELENOS)
+#include "sdl_keymaps.h"
+
+static void reset_keys(void)
+{
+    int i;
+    for(i = 0; i < 256; i++) {
+        if (modifiers_state[i]) {
+            qemu_input_event_send_key_qcode(dcl->con, i, false);
+            modifiers_state[i] = 0;
+        }
+    }
+}
+
+static void sdl_process_key(SDL_KeyboardEvent *ev)
+{
+    int qcode = sdl_keycode_to_qcode[ev->keysym.sym];
+    QemuConsole *con = dcl->con;
+
+    if (!qemu_console_is_graphic(con)) {
+        if (ev->type == SDL_KEYDOWN) {
+            switch (ev->keysym.sym) {
+            case SDLK_RETURN:
+                kbd_put_keysym_console(con, '\n');
+                break;
+            case SDLK_BACKSPACE:
+                kbd_put_keysym_console(con, QEMU_KEY_BACKSPACE);
+                break;
+            default:
+                kbd_put_qcode_console(con, qcode);
+                break;
+            }
+        }
+        return;
+    }
+
+    switch (ev->keysym.sym) {
+#if 0
+    case SDLK_NUMLOCK:
+    case SDLK_CAPSLOCK:
+        /* SDL does not send the key up event, so we generate it */
+        qemu_input_event_send_key_qcode(con, qcode, true);
+        qemu_input_event_send_key_qcode(con, qcode, false);
+        return;
+#endif
+    case SDLK_LCTRL:
+    case SDLK_LSHIFT:
+    case SDLK_LALT:
+    case SDLK_LSUPER:
+    case SDLK_RCTRL:
+    case SDLK_RSHIFT:
+    case SDLK_RALT:
+    case SDLK_RSUPER:
+        if (ev->type == SDL_KEYUP) {
+            modifiers_state[qcode] = 0;
+        } else {
+            modifiers_state[qcode] = 1;
+        }
+        /* fall though */
+    default:
+        qemu_input_event_send_key_qcode(con, qcode,
+                                        ev->type == SDL_KEYDOWN);
+    }
+}
+#else
+
 static void reset_keys(void)
 {
     int i;
@@ -320,6 +387,7 @@ static void sdl_process_key(SDL_KeyboardEvent *ev)
     qemu_input_event_send_key_number(dcl->con, keycode,
                                      ev->type == SDL_KEYDOWN);
 }
+#endif
 
 static void sdl_update_caption(void)
 {
